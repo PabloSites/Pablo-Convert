@@ -1,43 +1,53 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Pablo Convert</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
-      background: #000;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #000000, #0a0a23);
+      font-family: 'Arial', sans-serif;
       color: #fff;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
     }
 
     h1 {
+      font-size: 3em;
       color: #0ff;
       text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
-      font-size: 3em;
-      margin-bottom: 30px;
+      margin-bottom: 50px;
     }
 
     .import-box {
-      background: #fff;
+      background: #ffffff;
       color: #000;
-      width: 280px;
-      height: 180px;
-      margin: 0 auto;
+      width: 300px;
+      height: 200px;
       border-radius: 15px;
       border: 3px dashed #0ff;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      flex-direction: column;
       cursor: pointer;
-      transition: transform 0.2s ease;
+      transition: transform 0.3s ease;
+      text-align: center;
     }
 
     .import-box:hover {
-      transform: scale(1.03);
+      transform: scale(1.05);
+    }
+
+    .import-box p {
+      margin-top: 10px;
+      font-weight: bold;
     }
 
     #fileInput {
@@ -45,7 +55,7 @@
     }
 
     #convertBtn {
-      margin-top: 25px;
+      margin-top: 30px;
       padding: 12px 25px;
       background: #0ff;
       color: #000;
@@ -55,76 +65,105 @@
       font-weight: bold;
       cursor: pointer;
       display: none;
+      box-shadow: 0 0 15px #0ff;
+    }
+
+    #convertBtn:hover {
+      background: #00e6e6;
     }
 
     #loading {
-      margin-top: 20px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      background: rgba(0, 0, 0, 0.9);
+      width: 100%;
+      height: 100%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
       color: #0ff;
-      font-size: 16px;
+      z-index: 9999;
     }
 
-    #videoName {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #0ff;
+    .spinner {
+      border: 6px solid rgba(0, 255, 255, 0.2);
+      border-top: 6px solid #0ff;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
+
+  <div id="loading">
+    <div>
+      <div class="spinner"></div>
+      Convertendo vídeo para MP3...
+    </div>
+  </div>
+
   <h1>Pablo Convert</h1>
 
   <div class="import-box" onclick="document.getElementById('fileInput').click()">
     <div style="font-size: 3em;">+</div>
     <p>Importe seu vídeo</p>
-    <input type="file" id="fileInput" accept="video/*">
   </div>
+  <input type="file" id="fileInput" accept="video/*">
 
-  <div id="videoName"></div>
   <button id="convertBtn" onclick="convertToMP3()">Converter para MP3</button>
-  <div id="loading"></div>
 
-  <script type="module">
-    import { createFFmpeg, fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.9/+esm'
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const convertBtn = document.getElementById("convertBtn");
+    const loading = document.getElementById("loading");
 
-    const ffmpeg = createFFmpeg({ log: true });
-    let videoFile = null;
+    let selectedFile = null;
+    const ffmpeg = FFmpeg.createFFmpeg({ log: true });
 
-    const fileInput = document.getElementById('fileInput');
-    const convertBtn = document.getElementById('convertBtn');
-    const videoName = document.getElementById('videoName');
-    const loading = document.getElementById('loading');
-
-    fileInput.addEventListener('change', () => {
+    fileInput.addEventListener("change", async () => {
       if (fileInput.files.length > 0) {
-        videoFile = fileInput.files[0];
-        videoName.textContent = `Selecionado: ${videoFile.name}`;
-        convertBtn.style.display = 'inline-block';
+        selectedFile = fileInput.files[0];
+        convertBtn.style.display = "inline-block";
       }
     });
 
     async function convertToMP3() {
-      if (!videoFile) return;
+      if (!selectedFile) return;
 
-      loading.textContent = 'Carregando FFmpeg (pode demorar alguns segundos)...';
+      loading.style.display = "flex";
+
       if (!ffmpeg.isLoaded()) {
         await ffmpeg.load();
       }
 
-      loading.textContent = 'Convertendo para MP3...';
+      const fileName = "input.mp4";
+      const outputName = "output.mp3";
 
-      ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
-      await ffmpeg.run('-i', 'input.mp4', 'output.mp3');
-      const data = ffmpeg.FS('readFile', 'output.mp3');
+      ffmpeg.FS("writeFile", fileName, await FFmpeg.fetchFile(selectedFile));
+      await ffmpeg.run("-i", fileName, "-q:a", "0", "-map", "a", outputName);
+      const data = ffmpeg.FS("readFile", outputName);
 
-      const url = URL.createObjectURL(new Blob([data.buffer], { type: 'audio/mpeg' }));
-      const a = document.createElement('a');
+      const url = URL.createObjectURL(new Blob([data.buffer], { type: "audio/mpeg" }));
+      const a = document.createElement("a");
       a.href = url;
-      a.download = 'pablo_convert.mp3';
+      a.download = "pablo_convert.mp3";
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
 
-      loading.textContent = 'Download concluído!';
+      loading.style.display = "none";
     }
   </script>
+
 </body>
 </html>
